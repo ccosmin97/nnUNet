@@ -228,7 +228,7 @@ def save_segmentation_nifti(segmentation, out_fname, dct, order=1, force_separat
     else:
         seg_old_size = seg_old_spacing
 
-    seg_resized_itk = sitk.GetImageFromArray(seg_old_size.astype(np.uint8))
+    seg_resized_itk = sitk.GetImageFromArray(seg_old_size.astype(np.float32))#uint8))
     seg_resized_itk.SetSpacing(dct['itk_spacing'])
     seg_resized_itk.SetOrigin(dct['itk_origin'])
     seg_resized_itk.SetDirection(dct['itk_direction'])
