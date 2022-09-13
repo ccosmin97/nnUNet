@@ -228,10 +228,10 @@ def predict_cases(model, list_of_lists, output_filenames, folds, save_npz, num_t
         if len(params) > 1:
             softmax /= len(params)
 
-        transpose_forward = trainer.plans.get('transpose_forward')
-        if transpose_forward is not None:
-            transpose_backward = trainer.plans.get('transpose_backward')
-            softmax = softmax.transpose([0] + [i + 1 for i in transpose_backward])
+        # transpose_forward = trainer.plans.get('transpose_forward')
+        # if transpose_forward is not None:
+        #     transpose_backward = trainer.plans.get('transpose_backward')
+        #     softmax = softmax.transpose([0] + [i + 1 for i in transpose_backward])
 
         if save_npz:
             npz_file = output_filename[:-7] + ".npz"
@@ -257,39 +257,41 @@ def predict_cases(model, list_of_lists, output_filenames, folds, save_npz, num_t
             print(
                 "This output is too large for python process-process communication. Saving output temporarily to disk")
             np.save(output_filename[:-7] + ".npy", softmax)
-            softmax = output_filename[:-7] + ".npy"
+            # softmax = output_filename[:-7] + ".npy"
+        print(f"softmax shape : {softmax.shape}")
+        print(np.unique(softmax))
+        np.save(output_filename[:-7] + ".npy", softmax)
+    #     results.append(pool.starmap_async(save_segmentation_nifti_from_softmax,
+    #                                       ((softmax, output_filename, dct, interpolation_order, region_class_order,
+    #                                         None, None,
+    #                                         npz_file, None, force_separate_z, interpolation_order_z),)
+    #                                       ))
 
-        results.append(pool.starmap_async(save_segmentation_nifti_from_softmax,
-                                          ((softmax, output_filename, dct, interpolation_order, region_class_order,
-                                            None, None,
-                                            npz_file, None, force_separate_z, interpolation_order_z),)
-                                          ))
+    # print("inference done. Now waiting for the segmentation export to finish...")
+    # _ = [i.get() for i in results]
+    # # now apply postprocessing
+    # # first load the postprocessing properties if they are present. Else raise a well visible warning
+    # if not disable_postprocessing:
+    #     results = []
+    #     pp_file = join(model, "postprocessing.json")
+    #     if isfile(pp_file):
+    #         print("postprocessing...")
+    #         shutil.copy(pp_file, os.path.abspath(os.path.dirname(output_filenames[0])))
+    #         # for_which_classes stores for which of the classes everything but the largest connected component needs to be
+    #         # removed
+    #         for_which_classes, min_valid_obj_size = load_postprocessing(pp_file)
+    #         results.append(pool.starmap_async(load_remove_save,
+    #                                           zip(output_filenames, output_filenames,
+    #                                               [for_which_classes] * len(output_filenames),
+    #                                               [min_valid_obj_size] * len(output_filenames))))
+    #         _ = [i.get() for i in results]
+    #     else:
+    #         print("WARNING! Cannot run postprocessing because the postprocessing file is missing. Make sure to run "
+    #               "consolidate_folds in the output folder of the model first!\nThe folder you need to run this in is "
+    #               "%s" % model)
 
-    print("inference done. Now waiting for the segmentation export to finish...")
-    _ = [i.get() for i in results]
-    # now apply postprocessing
-    # first load the postprocessing properties if they are present. Else raise a well visible warning
-    if not disable_postprocessing:
-        results = []
-        pp_file = join(model, "postprocessing.json")
-        if isfile(pp_file):
-            print("postprocessing...")
-            shutil.copy(pp_file, os.path.abspath(os.path.dirname(output_filenames[0])))
-            # for_which_classes stores for which of the classes everything but the largest connected component needs to be
-            # removed
-            for_which_classes, min_valid_obj_size = load_postprocessing(pp_file)
-            results.append(pool.starmap_async(load_remove_save,
-                                              zip(output_filenames, output_filenames,
-                                                  [for_which_classes] * len(output_filenames),
-                                                  [min_valid_obj_size] * len(output_filenames))))
-            _ = [i.get() for i in results]
-        else:
-            print("WARNING! Cannot run postprocessing because the postprocessing file is missing. Make sure to run "
-                  "consolidate_folds in the output folder of the model first!\nThe folder you need to run this in is "
-                  "%s" % model)
-
-    pool.close()
-    pool.join()
+    # pool.close()
+    # pool.join()
 
 
 def predict_cases_fast(model, list_of_lists, output_filenames, folds, num_threads_preprocessing,

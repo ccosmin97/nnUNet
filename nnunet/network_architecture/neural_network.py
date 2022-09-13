@@ -147,7 +147,7 @@ class SegmentationNetwork(NeuralNetwork):
                                                                      pad_kwargs=pad_kwargs, all_in_gpu=all_in_gpu,
                                                                      verbose=verbose)
                     else:
-                        res = self._internal_predict_3D_3Dconv(x, patch_size, do_mirroring, mirror_axes, regions_class_order,
+                        res = self._internal_predict_3D_3Dconv(x, patch_size, False, mirror_axes, regions_class_order,
                                                                pad_border_mode, pad_kwargs=pad_kwargs, verbose=verbose)
                 elif self.conv_op == nn.Conv2d:
                     if use_sliding_window:
@@ -478,25 +478,25 @@ class SegmentationNetwork(NeuralNetwork):
         data, slicer = pad_nd_image(x, min_size, pad_border_mode, pad_kwargs, True,
                                     self.input_shape_must_be_divisible_by)
 
-        predicted_probabilities = self._internal_maybe_mirror_and_pred_3D(data[None], mirror_axes, do_mirroring,
+        predicted_probabilities = self._internal_maybe_mirror_and_pred_3D(data[None], mirror_axes, False,
                                                                           None)[0]
 
-        slicer = tuple(
-            [slice(0, predicted_probabilities.shape[i]) for i in range(len(predicted_probabilities.shape) -
-                                                                       (len(slicer) - 1))] + slicer[1:])
-        predicted_probabilities = predicted_probabilities[slicer]
+        # slicer = tuple(
+        #     [slice(0, predicted_probabilities.shape[i]) for i in range(len(predicted_probabilities.shape) -
+        #                                                                (len(slicer) - 1))] + slicer[1:])
+        # predicted_probabilities = predicted_probabilities[slicer]
 
-        if regions_class_order is None:
-            predicted_segmentation = predicted_probabilities.argmax(0)
-            predicted_segmentation = predicted_segmentation.detach().cpu().numpy()
-            predicted_probabilities = predicted_probabilities.detach().cpu().numpy()
-        else:
-            predicted_probabilities = predicted_probabilities.detach().cpu().numpy()
-            predicted_segmentation = np.zeros(predicted_probabilities.shape[1:], dtype=np.float32)
-            for i, c in enumerate(regions_class_order):
-                predicted_segmentation[predicted_probabilities[i] > 0.5] = c
-
-        return predicted_segmentation, predicted_probabilities
+        # if regions_class_order is None:
+        #     predicted_segmentation = predicted_probabilities.argmax(0)
+        #     predicted_segmentation = predicted_segmentation.detach().cpu().numpy()
+        #     predicted_probabilities = predicted_probabilities.detach().cpu().numpy()
+        # else:
+        #     predicted_probabilities = predicted_probabilities.detach().cpu().numpy()
+        #     predicted_segmentation = np.zeros(predicted_probabilities.shape[1:], dtype=np.float32)
+        #     for i, c in enumerate(regions_class_order):
+        #         predicted_segmentation[predicted_probabilities[i] > 0.5] = c
+        out = predicted_probabilities.cpu().numpy()
+        return out,out#predicted_segmentation, predicted_probabilities
 
     def _internal_maybe_mirror_and_pred_3D(self, x: Union[np.ndarray, torch.tensor], mirror_axes: tuple,
                                            do_mirroring: bool = True,
@@ -513,8 +513,11 @@ class SegmentationNetwork(NeuralNetwork):
 
         if torch.cuda.is_available():
             x = to_cuda(x, gpu_id=self.get_device())
-            result_torch = result_torch.cuda(self.get_device(), non_blocking=True)
-
+            result_torch = self(x).cuda(self.get_device(), non_blocking=True)
+            encoder_x = self(x)
+            print(np.unique(encoder_x.cpu().data))
+            print(f"encoder x shape : {encoder_x.shape}")
+            print(f"result torch shape : {result_torch.shape}")
         if mult is not None:
             mult = maybe_to_torch(mult)
             if torch.cuda.is_available():
@@ -527,43 +530,42 @@ class SegmentationNetwork(NeuralNetwork):
             mirror_idx = 1
             num_results = 1
 
-        for m in range(mirror_idx):
-            if m == 0:
-                pred = self.inference_apply_nonlin(self(x))
-                result_torch += 1 / num_results * pred
+        # for m in range(mirror_idx):
+        #     if m == 0:
+        #         pred = self.inference_apply_nonlin(self(x))
+        #         result_torch += self(x)#+= 1 / num_results * self(x)#* pred
 
-            if m == 1 and (2 in mirror_axes):
-                pred = self.inference_apply_nonlin(self(torch.flip(x, (4, ))))
-                result_torch += 1 / num_results * torch.flip(pred, (4,))
+        #     if m == 1 and (2 in mirror_axes):
+        #         pred = self.inference_apply_nonlin(self(torch.flip(x, (4, ))))
+        #         result_torch += 1 / num_results * torch.flip(pred, (4,))
 
-            if m == 2 and (1 in mirror_axes):
-                pred = self.inference_apply_nonlin(self(torch.flip(x, (3, ))))
-                result_torch += 1 / num_results * torch.flip(pred, (3,))
+        #     if m == 2 and (1 in mirror_axes):
+        #         pred = self.inference_apply_nonlin(self(torch.flip(x, (3, ))))
+        #         result_torch += 1 / num_results * torch.flip(pred, (3,))
 
-            if m == 3 and (2 in mirror_axes) and (1 in mirror_axes):
-                pred = self.inference_apply_nonlin(self(torch.flip(x, (4, 3))))
-                result_torch += 1 / num_results * torch.flip(pred, (4, 3))
+        #     if m == 3 and (2 in mirror_axes) and (1 in mirror_axes):
+        #         pred = self.inference_apply_nonlin(self(torch.flip(x, (4, 3))))
+        #         result_torch += 1 / num_results * torch.flip(pred, (4, 3))
 
-            if m == 4 and (0 in mirror_axes):
-                pred = self.inference_apply_nonlin(self(torch.flip(x, (2, ))))
-                result_torch += 1 / num_results * torch.flip(pred, (2,))
+        #     if m == 4 and (0 in mirror_axes):
+        #         pred = self.inference_apply_nonlin(self(torch.flip(x, (2, ))))
+        #         result_torch += 1 / num_results * torch.flip(pred, (2,))
 
-            if m == 5 and (0 in mirror_axes) and (2 in mirror_axes):
-                pred = self.inference_apply_nonlin(self(torch.flip(x, (4, 2))))
-                result_torch += 1 / num_results * torch.flip(pred, (4, 2))
+        #     if m == 5 and (0 in mirror_axes) and (2 in mirror_axes):
+        #         pred = self.inference_apply_nonlin(self(torch.flip(x, (4, 2))))
+        #         result_torch += 1 / num_results * torch.flip(pred, (4, 2))
 
-            if m == 6 and (0 in mirror_axes) and (1 in mirror_axes):
-                pred = self.inference_apply_nonlin(self(torch.flip(x, (3, 2))))
-                result_torch += 1 / num_results * torch.flip(pred, (3, 2))
+        #     if m == 6 and (0 in mirror_axes) and (1 in mirror_axes):
+        #         pred = self.inference_apply_nonlin(self(torch.flip(x, (3, 2))))
+        #         result_torch += 1 / num_results * torch.flip(pred, (3, 2))
 
-            if m == 7 and (0 in mirror_axes) and (1 in mirror_axes) and (2 in mirror_axes):
-                pred = self.inference_apply_nonlin(self(torch.flip(x, (4, 3, 2))))
-                result_torch += 1 / num_results * torch.flip(pred, (4, 3, 2))
+        #     if m == 7 and (0 in mirror_axes) and (1 in mirror_axes) and (2 in mirror_axes):
+        #         pred = self.inference_apply_nonlin(self(torch.flip(x, (4, 3, 2))))
+        #         result_torch += 1 / num_results * torch.flip(pred, (4, 3, 2))
 
-        if mult is not None:
-            result_torch[:, :] *= mult
-
-        return result_torch
+        # if mult is not None:
+        #     result_torch[:, :] *= mult
+        return encoder_x#result_torch
 
     def _internal_maybe_mirror_and_pred_2D(self, x: Union[np.ndarray, torch.tensor], mirror_axes: tuple,
                                            do_mirroring: bool = True,

@@ -515,13 +515,14 @@ class nnUNetTrainer(NetworkTrainer):
 
         current_mode = self.network.training
         self.network.eval()
-        ret = self.network.predict_3D(data, do_mirroring=do_mirroring, mirror_axes=mirror_axes,
-                                      use_sliding_window=use_sliding_window, step_size=step_size,
+        ret = self.network.predict_3D(data, do_mirroring=False, mirror_axes=mirror_axes,
+                                      use_sliding_window=False, step_size=step_size,
                                       patch_size=self.patch_size, regions_class_order=self.regions_class_order,
-                                      use_gaussian=use_gaussian, pad_border_mode=pad_border_mode,
-                                      pad_kwargs=pad_kwargs, all_in_gpu=all_in_gpu, verbose=verbose,
+                                      use_gaussian=False, pad_border_mode=pad_border_mode,
+                                      pad_kwargs=pad_kwargs, all_in_gpu=all_in_gpu, verbose=True,
                                       mixed_precision=mixed_precision)
         self.network.train(current_mode)
+        print(f"in predict_preprocessed_data_return_seg_and_softmax out shape : {ret[0].shape} and unique vals : {np.unique(ret[0])}")
         return ret
 
     def validate(self, do_mirroring: bool = True, use_sliding_window: bool = True, step_size: float = 0.5,
