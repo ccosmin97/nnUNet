@@ -360,7 +360,8 @@ class SegmentationNetwork(NeuralNetwork):
             data = torch.from_numpy(data).cuda(self.get_device(), non_blocking=True)
 
             if verbose: print("initializing result_numsamples (on GPU)")
-            aggregated_nb_of_predictions = torch.zeros([self.num_classes] + list(data.shape[1:]), dtype=torch.half,
+            aggregated_nb_of_predictions = torch.zeros([1] \ #[self.num_classes]
+                                                       + list(data.shape[1:]), dtype=torch.half,
                                                        device=self.get_device())
 
         else:
@@ -368,8 +369,10 @@ class SegmentationNetwork(NeuralNetwork):
                 add_for_nb_of_preds = self._gaussian_3d
             else:
                 add_for_nb_of_preds = np.ones(patch_size, dtype=np.float32)
-            aggregated_results = np.zeros([self.num_classes] + list(data.shape[1:]), dtype=np.float32)
-            aggregated_nb_of_predictions = np.zeros([self.num_classes] + list(data.shape[1:]), dtype=np.float32)
+            aggregated_results = np.zeros([1] \ #[self.num_classes] 
+                                          + list(data.shape[1:]), dtype=np.float32)
+            aggregated_nb_of_predictions = np.zeros([1] \ [self.num_classes] 
+                                                    + list(data.shape[1:]), dtype=np.float32)
 
         for x in steps[0]:
             lb_x = x
@@ -393,7 +396,7 @@ class SegmentationNetwork(NeuralNetwork):
                     aggregated_results[:, lb_x:ub_x, lb_y:ub_y, lb_z:ub_z] += predicted_patch
                     aggregated_nb_of_predictions[:, lb_x:ub_x, lb_y:ub_y, lb_z:ub_z] += add_for_nb_of_preds
 
-        # we reverse the padding here (remeber that we padded the input to be at least as large as the patch size
+        # we reverse the padding here (remember that we padded the input to be at least as large as the patch size
         slicer = tuple(
             [slice(0, aggregated_results.shape[i]) for i in
              range(len(aggregated_results.shape) - (len(slicer) - 1))] + slicer[1:])
@@ -424,7 +427,7 @@ class SegmentationNetwork(NeuralNetwork):
             aggregated_results = aggregated_results.detach().cpu().numpy()
 
         if verbose: print("prediction done")
-        return predicted_segmentation, aggregated_results
+        return aggregated_results, aggregated_results#predicted_segmentation, aggregated_results
 
     def _internal_predict_2D_2Dconv(self, x: np.ndarray, min_size: Tuple[int, int], do_mirroring: bool,
                                     mirror_axes: tuple = (0, 1, 2), regions_class_order: tuple = None,
