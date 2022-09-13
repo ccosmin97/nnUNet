@@ -404,27 +404,31 @@ class SegmentationNetwork(NeuralNetwork):
         aggregated_results /= aggregated_nb_of_predictions
         del aggregated_nb_of_predictions
 
-        if regions_class_order is None:
-            predicted_segmentation = aggregated_results.argmax(0)
-        else:
-            if all_in_gpu:
-                class_probabilities_here = aggregated_results.detach().cpu().numpy()
-            else:
-                class_probabilities_here = aggregated_results
-            predicted_segmentation = np.zeros(class_probabilities_here.shape[1:], dtype=np.float32)
-            for i, c in enumerate(regions_class_order):
-                predicted_segmentation[class_probabilities_here[i] > 0.5] = c
-
+#         if regions_class_order is None:
+#             predicted_segmentation = aggregated_results.argmax(0)
+#         else:
+#             if all_in_gpu:
+#                 class_probabilities_here = aggregated_results.detach().cpu().numpy()
+#             else:
+#                 class_probabilities_here = aggregated_results
+#             predicted_segmentation = np.zeros(class_probabilities_here.shape[1:], dtype=np.float32)
+#             for i, c in enumerate(regions_class_order):
+#                 predicted_segmentation[class_probabilities_here[i] > 0.5] = c
+        
+        # take best model anyway
+        predicted_segmentation = aggregated_results.argmax(0)
+        
         if all_in_gpu:
             if verbose: print("copying results to CPU")
 
-            if regions_class_order is None:
-                predicted_segmentation = predicted_segmentation.detach().cpu().numpy()
-
+#             if regions_class_order is None:
+#                 predicted_segmentation = predicted_segmentation.detach().cpu().numpy()
+            
+            predicted_segmentation = predicted_segmentation.detach().cpu().numpy()
             aggregated_results = aggregated_results.detach().cpu().numpy()
 
         if verbose: print("prediction done")
-        return aggregated_results, aggregated_results#predicted_segmentation, aggregated_results
+        return predicted_segmentation, aggregated_results
 
     def _internal_predict_2D_2Dconv(self, x: np.ndarray, min_size: Tuple[int, int], do_mirroring: bool,
                                     mirror_axes: tuple = (0, 1, 2), regions_class_order: tuple = None,
